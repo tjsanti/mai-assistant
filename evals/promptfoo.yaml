@@ -1,0 +1,15 @@
+description: Personal knowledge agent V1 evals
+prompts:
+  - "{{message}}"
+providers:
+  - id: http
+    config:
+      url: http://localhost:8000/chat
+      method: POST
+      headers:
+        Content-Type: application/json
+      body:
+        message: "{{message}}"
+        force_tool: "{{force_tool}}"
+tests: ./test_cases.yaml
+

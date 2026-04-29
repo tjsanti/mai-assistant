@@ -1,0 +1,461 @@
+
+
+# V1 Spec: Local Personal Knowledge Agent
+
+## Goal
+
+Build a local-first personal AI assistant with a browser UI, a FastAPI backend, and a LangGraph main agent that can decide when to use a local RAG answer tool over personal documents.
+
+The system should support configurable LLM providers:
+
+- **RAG/document questions:** local Ollama model
+- **General questions:** OpenAI model
+- Provider choices configurable through `.env`, not hardcoded
+
+V1 should be small, testable, and extensible.
+
+---
+
+## Core Principles
+
+1. Build with test-driven development.
+2. Keep V1 small and shippable.
+3. RAG should be exposed as a tool/sub-agent, not just a route.
+4. Sensitive document context should stay local by default.
+5. RAG answers must be grounded in retrieved documents.
+6. If the docs do not support an answer, the RAG tool must say so.
+7. The main agent decides whether to call the RAG tool.
+8. LLM providers must be swappable by configuration.
+9. Use simple abstractions now that can support more tools later.
+10. Do not overbuild multi-agent complexity in V1.
+
+---
+
+## Tech Stack
+
+### Backend
+- Python 3.11+
+- FastAPI
+- Pydantic
+- uv for Python environment/dependency management
+- pytest
+- ruff
+- python-dotenv
+
+### Agent / Orchestration
+- LangGraph for main agent flow
+- LangChain for:
+  - document loaders
+  - text splitters
+  - retriever abstractions
+  - tool wrappers where useful
+
+### RAG
+- ChromaDB
+- sentence-transformers embeddings
+- Recommended embedding model:
+  - `BAAI/bge-small-en-v1.5`
+  - or `sentence-transformers/all-MiniLM-L6-v2` for maximum simplicity/speed
+
+### LLM Providers
+- OpenAI API for general responses
+- Ollama for local RAG responses
+
+### Frontend
+- Vite + React
+- Browser-accessible localhost UI
+- Simple chat interface
+
+### Evaluation
+- Promptfoo for V1
+- RAGAS saved for V1.5/V2 after the RAG pipeline stabilizes
+
+---
+
+## Project Structure
+
+```text
+personal-knowledge-agent/
+  backend/
+    app/
+      main.py
+      config.py
+      schemas.py
+
+      llms/
+        base.py
+        openai_provider.py
+        ollama_provider.py
+        router.py
+
+      rag/
+        loaders.py
+        chunking.py
+        embeddings.py
+        vector_store.py
+        retriever.py
+        rag_answer_tool.py
+
+      agent/
+        graph.py
+        tools.py
+        prompts.py
+
+    tests/
+      test_config.py
+      test_chunking.py
+      test_ingestion.py
+      test_retriever.py
+      test_llm_router.py
+      test_agent_tool_selection.py
+      test_rag_answer_tool.py
+
+    pyproject.toml
+    uv.lock
+    .env.example
+
+  frontend/
+    src/
+      App.tsx
+      api.ts
+      components/
+        ChatWindow.tsx
+        SourceList.tsx
+        ProviderBadge.tsx
+    package.json
+    vite.config.ts
+
+  docs/
+    .gitkeep
+
+  evals/
+    promptfoo.yaml
+    test_cases.yaml
+
+  README.md
+ 
+⸻
+ 
+Configuration
+Use .env and Pydantic settings.
+OPENAI_API_KEY=
+OPENAI_MODEL=gpt-4.1-mini
+
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=llama3.1:8b
+
+GENERAL_LLM_PROVIDER=openai
+RAG_LLM_PROVIDER=ollama
+
+EMBEDDING_MODEL=BAAI/bge-small-en-v1.5
+
+DOCS_DIR=./docs
+VECTOR_DB_DIR=./.vector_db
+RETRIEVAL_TOP_K=5
+Provider rules:
+	•	General agent response should use GENERAL_LLM_PROVIDER
+	•	RAG answer tool should use RAG_LLM_PROVIDER
+	•	RAG context should not be sent to OpenAI unless explicitly configured later
+ 
+⸻
+ 
+LLM Provider Interface
+Create a common provider interface.
+class LLMProvider(Protocol):
+    def generate(self, messages: list[dict], **kwargs) -> str:
+        ...
+Implement:
+	•	OpenAIProvider
+	•	OllamaProvider
+App code should not call OpenAI or Ollama directly. All generation goes through provider classes.
+ 
+⸻
+ 
+RAG Tool Design
+RAG should be implemented as a tool/sub-agent:
+rag_answer(query: str) -> RagAnswerResult
+The RAG tool should:
+	1.	Retrieve relevant chunks from Chroma
+	2.	Build a grounded prompt
+	3.	Generate the answer using Ollama/local provider
+	4.	Return answer + sources
+	5.	Refuse if context is insufficient
+Response shape:
+{
+  "answer": "...",
+  "sources": [
+    {
+      "file": "pcd_editing.md",
+      "page": null,
+      "chunk_id": "pcd_editing_003",
+      "score": 0.82
+    }
+  ],
+  "tool": "rag_answer",
+  "llm_provider": "ollama"
+}
+RAG prompt rules:
+	•	Answer only from retrieved context.
+	•	Cite source files.
+	•	Do not use outside knowledge.
+	•	If unsupported, say:
+I don't have enough information in the provided documents to answer that.
+ 
+⸻
+ 
+Main Agent Design
+Use LangGraph for the main agent.
+The main agent receives the user query and decides whether to call tools.
+V1 tools:
+- rag_answer
+- general_response
+Behavior:
+	•	If the user asks about personal docs, resume, project notes, uploaded/local files, or “based on my docs,” call rag_answer.
+	•	Otherwise, use general_response.
+	•	General response uses OpenAI by default.
+	•	RAG answer uses Ollama by default.
+The agent should return:
+{
+  "answer": "...",
+  "tool_used": "rag_answer",
+  "llm_provider": "ollama",
+  "sources": []
+}
+ 
+⸻
+ 
+Document Ingestion
+Support:
+	•	.pdf
+	•	.md
+	•	.txt
+Use LangChain document loaders where practical.
+Ingestion should:
+	1.	Read files from /docs
+	2.	Load documents through LangChain loaders
+	3.	Split text using LangChain text splitters
+	4.	Preserve metadata:
+	•	file name
+	•	file path
+	•	page number if available
+	•	chunk id
+	5.	Embed chunks with sentence-transformers
+	6.	Store chunks in Chroma
+Manual command:
+uv run python -m app.rag.ingestion
+API endpoint:
+POST /ingest
+ 
+⸻
+ 
+Chunking
+Use LangChain splitter.
+Recommended defaults:
+chunk_size: 800
+chunk_overlap: 120
+Tests should verify:
+	•	long documents split into multiple chunks
+	•	short documents remain one chunk
+	•	no empty chunks
+	•	metadata is preserved
+	•	overlap exists
+ 
+⸻
+ 
+API Endpoints
+Health
+GET /health
+Response:
+{"status": "ok"}
+Ingest
+POST /ingest
+Runs ingestion over /docs.
+Chat
+POST /chat
+Request:
+{
+  "message": "What does my resume say about FAISS?",
+  "force_tool": null
+}
+Response:
+{
+  "answer": "...",
+  "tool_used": "rag_answer",
+  "llm_provider": "ollama",
+  "sources": []
+}
+force_tool may be:
+	•	rag_answer
+	•	general_response
+	•	null
+ 
+⸻
+ 
+Frontend Requirements
+Build a simple browser UI using Vite + React.
+Required V1 UI:
+	•	Single chat page
+	•	Message input
+	•	Conversation display
+	•	Source list under RAG answers
+	•	Small indicator showing:
+	•	tool used
+	•	LLM provider used
+	•	Button to trigger ingestion
+	•	Basic loading/error states
+Do not build:
+	•	login
+	•	settings UI
+	•	document upload UI
+	•	complex styling
+	•	mobile app
+	•	streaming responses unless trivial
+ 
+⸻
+ 
+Testing Requirements
+Use pytest.
+Write tests before or alongside implementation.
+Minimum tests:
+Config
+	•	loads defaults
+	•	reads .env
+	•	supports separate providers for general and RAG
+LLM Providers
+	•	OpenAI provider conforms to interface
+	•	Ollama provider conforms to interface
+	•	invalid provider raises clear error
+Chunking
+	•	long text chunks correctly
+	•	short text remains one chunk
+	•	metadata preserved
+	•	no empty chunks
+Ingestion
+	•	loads .txt
+	•	loads .md
+	•	loads .pdf
+	•	ignores unsupported files gracefully
+	•	stores chunk metadata
+Retrieval
+	•	returns top-k chunks
+	•	includes file metadata
+	•	handles empty vector store gracefully
+RAG Tool
+	•	calls retriever
+	•	uses local/Ollama provider
+	•	includes sources
+	•	refuses unsupported answers
+	•	does not call OpenAI by default
+Main Agent
+	•	calls rag_answer for document/project/resume questions
+	•	calls general_response for general questions
+	•	respects force_tool
+	•	returns tool/provider metadata
+Use mocks/fakes for unit tests. Real LLM calls should not be required for test runs.
+Run tests with:
+uv run pytest
+ 
+⸻
+ 
+Evaluation
+Use Promptfoo for V1.
+Promptfoo should test:
+	1.	Direct factual lookup
+	2.	Multi-document synthesis
+	3.	Resume/project summarization
+	4.	Unsupported question refusal
+	5.	Citation/source inclusion
+	6.	Tool selection behavior
+	7.	No fabricated experience
+Run with:
+promptfoo eval
+RAGAS is not required for V1.
+Save RAGAS for V1.5/V2 when:
+	•	document ingestion is stable
+	•	retrieval behavior is stable
+	•	you have a reliable eval dataset
+	•	you want deeper metrics like faithfulness, context precision, context recall, and answer relevancy
+ 
+⸻
+ 
+README Requirements
+README should include:
+	•	project goal
+	•	architecture overview
+	•	setup with uv
+	•	Ollama setup
+	•	OpenAI setup
+	•	how to add docs
+	•	how to ingest docs
+	•	how to run backend
+	•	how to run frontend
+	•	how to run tests
+	•	how to run Promptfoo evals
+	•	current limitations
+	•	future roadmap
+ 
+⸻
+ 
+V1 Non-Goals
+Do not implement yet:
+	•	email/calendar integrations
+	•	MCP
+	•	long-term memory
+	•	multiple specialized agents
+	•	RAGAS
+	•	LangSmith tracing
+	•	hybrid search
+	•	reranking
+	•	auth
+	•	cloud deployment
+	•	Kubernetes
+	•	document upload UI
+	•	background file watching
+	•	mobile app
+	•	voice interface
+	•	fine-tuning
+	•	complex frontend settings
+ 
+⸻
+ 
+Future Roadmap
+V1.5
+	•	Better eval dataset
+	•	RAGAS
+	•	LangSmith tracing
+	•	streaming responses
+	•	document upload UI
+	•	better source display
+V2
+	•	hybrid search
+	•	reranking
+	•	metadata filters
+	•	configurable model settings in UI
+	•	MCP tools
+	•	persistent conversation history
+V3
+	•	email/calendar tools
+	•	long-term memory
+	•	background jobs
+	•	remote access
+	•	authentication
+	•	cloud deployment
+ 
+⸻
+ 
+Definition of Done
+V1 is complete when:
+	•	I can run the backend with uv
+	•	I can run the frontend locally in my browser
+	•	I can place files in /docs
+	•	I can trigger ingestion
+	•	I can ask a document question
+	•	The main agent calls rag_answer
+	•	rag_answer uses Ollama/local model
+	•	RAG answers include sources
+	•	Unsupported RAG questions are refused
+	•	General questions use OpenAI
+	•	Tests pass with uv run pytest
+	•	Promptfoo evals run
+	•	README clearly explains setup and usage
+

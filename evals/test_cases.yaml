@@ -1,0 +1,37 @@
+- vars:
+    message: "What does my resume say about FAISS?"
+    force_tool: null
+  assert:
+    - type: contains
+      value: "resume"
+
+- vars:
+    message: "Summarize my project notes and resume overlap."
+    force_tool: null
+  assert:
+    - type: contains-any
+      value:
+        - "project"
+        - "resume"
+
+- vars:
+    message: "What are my experiences with vector databases?"
+    force_tool: rag_answer
+  assert:
+    - type: not-contains
+      value: "made up"
+
+- vars:
+    message: "What happened in world news today?"
+    force_tool: general_response
+  assert:
+    - type: javascript
+      value: output.tool_used === "general_response"
+
+- vars:
+    message: "Answer a question my docs do not support."
+    force_tool: rag_answer
+  assert:
+    - type: contains
+      value: "I don't have enough information in the provided documents to answer that."
+

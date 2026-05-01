@@ -1,4 +1,5 @@
 from app.config import Settings
+from app.agent.general_answerer import GeneralAnswerer
 from app.llms.base import LLMProvider, ToolSelectionProvider
 from app.llms.ollama_provider import OllamaProvider
 from app.llms.openai_provider import OpenAIProvider
@@ -27,6 +28,9 @@ class ProviderRegistry:
     def get_rag_provider(self) -> LLMProvider:
         return self.get_provider(self.settings.rag_llm_provider)
 
+    def get_general_answerer(self) -> GeneralAnswerer:
+        return GeneralAnswerer(self.get_general_provider())
+
     def get_tool_selection_provider(self) -> ToolSelectionProvider:
         provider = self.get_general_provider()
         if not hasattr(provider, "choose_tool"):
@@ -34,4 +38,3 @@ class ProviderRegistry:
                 f"Provider '{provider.provider_name}' does not support tool selection."
             )
         return provider  # type: ignore[return-value]
-

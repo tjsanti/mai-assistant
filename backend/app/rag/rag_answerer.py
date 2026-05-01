@@ -1,20 +1,21 @@
 from app.llms.base import LLMProvider
 from app.rag.retriever import RetrievedChunk, Retriever
-from app.schemas import RagAnswerResult, SourceMetadata
+from app.schemas import ChatResponse, SourceMetadata
 
 UNSUPPORTED_ANSWER = "I don't have enough information in the provided documents to answer that."
 
 
-class RagAnswerTool:
+class RagAnswerer:
     def __init__(self, retriever: Retriever, provider: LLMProvider) -> None:
         self.retriever = retriever
         self.provider = provider
 
-    def run(self, query: str) -> RagAnswerResult:
+    def run(self, query: str) -> ChatResponse:
         retrieved = self.retriever.retrieve(query)
         if not retrieved:
-            return RagAnswerResult(
+            return ChatResponse(
                 answer=UNSUPPORTED_ANSWER,
+                tool_used="rag_answer",
                 sources=[],
                 llm_provider=self.provider.provider_name,  # type: ignore[arg-type]
             )
@@ -36,8 +37,9 @@ class RagAnswerTool:
                 },
             ]
         ).strip()
-        return RagAnswerResult(
+        return ChatResponse(
             answer=answer or UNSUPPORTED_ANSWER,
+            tool_used="rag_answer",
             sources=self._sources_from_chunks(retrieved),
             llm_provider=self.provider.provider_name,  # type: ignore[arg-type]
         )
@@ -62,4 +64,3 @@ class RagAnswerTool:
             )
             for chunk in chunks
         ]
-

@@ -1,7 +1,7 @@
+from app.agent.answer_engine import AnswerEngine
+from app.agent.general_answerer import GeneralAnswerer
 from app.agent.graph import AgentGraph
-from app.agent.tools import GeneralResponseTool
-from app.rag.rag_answer_tool import RagAnswerTool
-from app.schemas import ChatRequest, RagAnswerResult, SourceMetadata
+from app.schemas import ChatRequest, ChatResponse, SourceMetadata
 
 
 class FakeSelector:
@@ -13,9 +13,10 @@ class FakeSelector:
 
 
 class FakeRagTool:
-    def run(self, query: str) -> RagAnswerResult:
-        return RagAnswerResult(
+    def run(self, query: str) -> ChatResponse:
+        return ChatResponse(
             answer="rag answer",
+            tool_used="rag_answer",
             llm_provider="ollama",
             sources=[SourceMetadata(file="resume.md", page=None, chunk_id="resume_001", score=0.9)],
         )
@@ -29,36 +30,38 @@ class FakeProvider:
 
 
 def test_calls_rag_answer_for_document_question() -> None:
-    graph = AgentGraph(FakeSelector("rag_answer"), FakeRagTool(), GeneralResponseTool(FakeProvider()))
-    response = graph.run(ChatRequest(message="What does my resume say about FAISS?"))
+    engine = AnswerEngine(FakeSelector("rag_answer"), FakeRagTool(), GeneralAnswerer(FakeProvider()))
+    response = engine.answer(ChatRequest(message="What does my resume say about FAISS?"))
     assert response.tool_used == "rag_answer"
     assert response.llm_provider == "ollama"
 
 
 def test_calls_general_response_for_general_question() -> None:
-    graph = AgentGraph(
-        FakeSelector("general_response"),
-        FakeRagTool(),
-        GeneralResponseTool(FakeProvider()),
+    engine = AnswerEngine(
+        FakeSelector("general_response"), FakeRagTool(), GeneralAnswerer(FakeProvider())
     )
-    response = graph.run(ChatRequest(message="What is the capital of France?"))
+    response = engine.answer(ChatRequest(message="What is the capital of France?"))
     assert response.tool_used == "general_response"
     assert response.llm_provider == "openai"
 
 
 def test_respects_force_tool() -> None:
-    graph = AgentGraph(
-        FakeSelector("general_response"),
-        FakeRagTool(),
-        GeneralResponseTool(FakeProvider()),
+    engine = AnswerEngine(
+        FakeSelector("general_response"), FakeRagTool(), GeneralAnswerer(FakeProvider())
     )
-    response = graph.run(ChatRequest(message="Use docs", force_tool="rag_answer"))
+    response = engine.answer(ChatRequest(message="Use docs", force_tool="rag_answer"))
     assert response.tool_used == "rag_answer"
 
 
 def test_returns_tool_and_provider_metadata() -> None:
-    graph = AgentGraph(FakeSelector("rag_answer"), FakeRagTool(), GeneralResponseTool(FakeProvider()))
-    response = graph.run(ChatRequest(message="Use docs"))
+    engine = AnswerEngine(FakeSelector("rag_answer"), FakeRagTool(), GeneralAnswerer(FakeProvider()))
+    response = engine.answer(ChatRequest(message="Use docs"))
     assert response.tool_used == "rag_answer"
     assert response.sources[0].file == "resume.md"
 
+
+def test_graph_delegates_execution_to_answer_engine() -> None:
+    engine = AnswerEngine(FakeSelector("general_response"), FakeRagTool(), GeneralAnswerer(FakeProvider()))
+    graph = AgentGraph(engine)
+    response = graph.run(ChatRequest(message="What is the capital of France?"))
+    assert response.tool_used == "general_response"

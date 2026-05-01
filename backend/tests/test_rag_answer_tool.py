@@ -1,6 +1,6 @@
 from langchain_core.documents import Document
 
-from app.rag.rag_answer_tool import RagAnswerTool, UNSUPPORTED_ANSWER
+from app.rag.rag_answerer import RagAnswerer, UNSUPPORTED_ANSWER
 from app.rag.retriever import RetrievedChunk
 
 
@@ -39,7 +39,7 @@ def test_calls_retriever_and_uses_local_provider() -> None:
         ]
     )
     provider = FakeProvider("You mention FAISS in resume.md.")
-    result = RagAnswerTool(retriever, provider).run("What does my resume say about FAISS?")
+    result = RagAnswerer(retriever, provider).run("What does my resume say about FAISS?")
     assert retriever.calls == ["What does my resume say about FAISS?"]
     assert provider.calls == 1
     assert result.llm_provider == "ollama"
@@ -57,18 +57,17 @@ def test_includes_sources() -> None:
             )
         ]
     )
-    result = RagAnswerTool(retriever, FakeProvider("answer")).run("query")
+    result = RagAnswerer(retriever, FakeProvider("answer")).run("query")
     assert result.sources[0].file == "resume.md"
     assert result.sources[0].page == 2
 
 
 def test_refuses_unsupported_answers() -> None:
-    result = RagAnswerTool(FakeRetriever([]), FakeProvider("should not be used")).run("query")
+    result = RagAnswerer(FakeRetriever([]), FakeProvider("should not be used")).run("query")
     assert result.answer == UNSUPPORTED_ANSWER
 
 
 def test_does_not_call_openai_by_default() -> None:
     provider = FakeProvider("answer")
-    RagAnswerTool(FakeRetriever([]), provider).run("query")
+    RagAnswerer(FakeRetriever([]), provider).run("query")
     assert provider.calls == 0
-

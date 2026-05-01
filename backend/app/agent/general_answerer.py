@@ -2,7 +2,7 @@ from app.llms.base import LLMProvider
 from app.schemas import ChatResponse
 
 
-class GeneralResponseTool:
+class GeneralAnswerer:
     def __init__(self, provider: LLMProvider) -> None:
         self.provider = provider
 
@@ -14,4 +14,3 @@ class GeneralResponseTool:
             llm_provider=self.provider.provider_name,  # type: ignore[arg-type]
             sources=[],
         )
-

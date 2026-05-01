@@ -14,13 +14,6 @@ class SourceMetadata(BaseModel):
     score: float | None = None
 
 
-class RagAnswerResult(BaseModel):
-    answer: str
-    sources: list[SourceMetadata] = Field(default_factory=list)
-    tool: Literal["rag_answer"] = "rag_answer"
-    llm_provider: ProviderName
-
-
 class ChatRequest(BaseModel):
     message: str
     force_tool: ToolName | None = None
@@ -41,4 +34,3 @@ class IngestResponse(BaseModel):
     status: Literal["ok"] = "ok"
     documents_indexed: int
     chunks_indexed: int
-

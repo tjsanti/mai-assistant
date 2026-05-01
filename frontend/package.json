@@ -18,6 +18,9 @@
     "@vitejs/plugin-react": "^4.3.1",
     "typescript": "^5.5.4",
     "vite": "^5.4.2"
+  },
+  "optionalDependencies": {
+    "@rollup/rollup-darwin-arm64": "^4.60.2",
+    "@rollup/rollup-darwin-x64": "4.60.2"
   }
 }
-

@@ -48,7 +48,20 @@ Or call:
 POST /ingest
 ```
 
-## Run Backend
+## Run The App
+
+```bash
+./start-app.sh
+```
+
+This starts:
+
+- the FastAPI backend on `http://localhost:8000`
+- the Vite frontend on `http://localhost:5173`
+
+Then open `http://localhost:5173` in your browser.
+
+If you only want the backend:
 
 ```bash
 cd backend

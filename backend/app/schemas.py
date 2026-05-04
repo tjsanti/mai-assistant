@@ -2,7 +2,6 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-
 ToolName = Literal["rag_answer", "general_response"]
 ProviderName = Literal["openai", "ollama"]
 

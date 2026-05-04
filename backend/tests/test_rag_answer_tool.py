@@ -1,6 +1,6 @@
 from langchain_core.documents import Document
 
-from app.rag.rag_answerer import RagAnswerer, UNSUPPORTED_ANSWER
+from app.rag.rag_answerer import UNSUPPORTED_ANSWER, RagAnswerer
 from app.rag.retriever import RetrievedChunk
 
 

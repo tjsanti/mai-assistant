@@ -30,7 +30,11 @@ class FakeProvider:
 
 
 def test_calls_rag_answer_for_document_question() -> None:
-    engine = AnswerEngine(FakeSelector("rag_answer"), FakeRagTool(), GeneralAnswerer(FakeProvider()))
+    engine = AnswerEngine(
+        FakeSelector("rag_answer"),
+        FakeRagTool(),
+        GeneralAnswerer(FakeProvider()),
+    )
     response = engine.answer(ChatRequest(message="What does my resume say about FAISS?"))
     assert response.tool_used == "rag_answer"
     assert response.llm_provider == "ollama"
@@ -54,14 +58,22 @@ def test_respects_force_tool() -> None:
 
 
 def test_returns_tool_and_provider_metadata() -> None:
-    engine = AnswerEngine(FakeSelector("rag_answer"), FakeRagTool(), GeneralAnswerer(FakeProvider()))
+    engine = AnswerEngine(
+        FakeSelector("rag_answer"),
+        FakeRagTool(),
+        GeneralAnswerer(FakeProvider()),
+    )
     response = engine.answer(ChatRequest(message="Use docs"))
     assert response.tool_used == "rag_answer"
     assert response.sources[0].file == "resume.md"
 
 
 def test_graph_delegates_execution_to_answer_engine() -> None:
-    engine = AnswerEngine(FakeSelector("general_response"), FakeRagTool(), GeneralAnswerer(FakeProvider()))
+    engine = AnswerEngine(
+        FakeSelector("general_response"),
+        FakeRagTool(),
+        GeneralAnswerer(FakeProvider()),
+    )
     graph = AgentGraph(engine)
     response = graph.run(ChatRequest(message="What is the capital of France?"))
     assert response.tool_used == "general_response"

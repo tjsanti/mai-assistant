@@ -3,6 +3,7 @@ from pathlib import Path
 from langchain_core.documents import Document
 from pypdf import PdfWriter
 
+from app.rag import ingestion
 from app.rag.ingestion import IngestionService
 from app.rag.loaders import load_documents
 
@@ -49,3 +50,19 @@ def test_stores_chunk_metadata(tmp_path: Path) -> None:
     assert result.chunks_indexed >= 1
     assert vector_store.reset_called is True
     assert "chunk_id" in vector_store.documents[0].metadata
+
+
+def test_cli_ingestion_uses_runtime(monkeypatch, capsys) -> None:
+    class FakeIngestionService:
+        def run(self):
+            return ingestion.IngestResponse(documents_indexed=2, chunks_indexed=3)
+
+    class FakeRuntime:
+        def ingestion_service(self) -> FakeIngestionService:
+            return FakeIngestionService()
+
+    monkeypatch.setattr("app.runtime.get_runtime", lambda: FakeRuntime())
+
+    ingestion.main()
+
+    assert capsys.readouterr().out == "Ingestion complete: 2 documents, 3 chunks.\n"

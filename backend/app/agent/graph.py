@@ -3,7 +3,6 @@ from typing import TypedDict
 from langgraph.graph import END, START, StateGraph
 
 from app.agent.answer_engine import AnswerEngine
-from app.config import Settings
 from app.schemas import ChatRequest, ChatResponse, ToolName
 
 
@@ -18,10 +17,6 @@ class AgentGraph:
     def __init__(self, answer_engine: AnswerEngine) -> None:
         self.answer_engine = answer_engine
         self.graph = self._build_graph()
-
-    @classmethod
-    def from_settings(cls, settings: Settings) -> "AgentGraph":
-        return cls(answer_engine=AnswerEngine.from_settings(settings))
 
     def run(self, request: ChatRequest) -> ChatResponse:
         state = self.graph.invoke(

@@ -33,3 +33,7 @@ class IngestResponse(BaseModel):
     status: Literal["ok"] = "ok"
     documents_indexed: int
     chunks_indexed: int
+
+
+class DocumentUploadIngestResponse(IngestResponse):
+    uploaded_files: list[str] = Field(default_factory=list)

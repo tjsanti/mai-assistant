@@ -12,4 +12,5 @@ dist/
 
 # Local project data
 .vector_db/
+docs/
 backend/.env

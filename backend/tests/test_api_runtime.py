@@ -83,6 +83,95 @@ def test_ingest_route_uses_runtime_dependency() -> None:
     assert runtime.ingestion.calls == 1
 
 
+def test_upload_documents_saves_files_and_runs_ingestion(tmp_path) -> None:
+    runtime = FakeRuntime()
+    runtime.settings = Settings(docs_dir=tmp_path)
+    app.dependency_overrides[get_runtime] = lambda: runtime
+    try:
+        response = TestClient(app).post(
+            "/documents/upload",
+            files=[
+                ("files", ("note.txt", b"hello", "text/plain")),
+                ("files", ("summary.md", b"# Summary", "text/markdown")),
+            ],
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "status": "ok",
+        "documents_indexed": 2,
+        "chunks_indexed": 3,
+        "uploaded_files": ["note.txt", "summary.md"],
+    }
+    assert (tmp_path / "note.txt").read_text() == "hello"
+    assert (tmp_path / "summary.md").read_text() == "# Summary"
+    assert runtime.ingestion.calls == 1
+
+
+def test_upload_documents_rejects_unsupported_files(tmp_path) -> None:
+    runtime = FakeRuntime()
+    runtime.settings = Settings(docs_dir=tmp_path)
+    app.dependency_overrides[get_runtime] = lambda: runtime
+    try:
+        response = TestClient(app).post(
+            "/documents/upload",
+            files=[("files", ("data.json", b"{}", "application/json"))],
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 400
+    assert not (tmp_path / "data.json").exists()
+    assert runtime.ingestion.calls == 0
+
+
+def test_upload_documents_rejects_mixed_batch_without_saving(tmp_path) -> None:
+    runtime = FakeRuntime()
+    runtime.settings = Settings(docs_dir=tmp_path)
+    app.dependency_overrides[get_runtime] = lambda: runtime
+    try:
+        response = TestClient(app).post(
+            "/documents/upload",
+            files=[
+                ("files", ("note.txt", b"hello", "text/plain")),
+                ("files", ("data.json", b"{}", "application/json")),
+            ],
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 400
+    assert not (tmp_path / "note.txt").exists()
+    assert not (tmp_path / "data.json").exists()
+    assert runtime.ingestion.calls == 0
+
+
+def test_upload_documents_renames_duplicate_files(tmp_path) -> None:
+    (tmp_path / "note.txt").write_text("existing")
+    runtime = FakeRuntime()
+    runtime.settings = Settings(docs_dir=tmp_path)
+    app.dependency_overrides[get_runtime] = lambda: runtime
+    try:
+        response = TestClient(app).post(
+            "/documents/upload",
+            files=[
+                ("files", ("note.txt", b"first", "text/plain")),
+                ("files", ("note.txt", b"second", "text/plain")),
+            ],
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json()["uploaded_files"] == ["note-2.txt", "note-3.txt"]
+    assert (tmp_path / "note.txt").read_text() == "existing"
+    assert (tmp_path / "note-2.txt").read_text() == "first"
+    assert (tmp_path / "note-3.txt").read_text() == "second"
+    assert runtime.ingestion.calls == 1
+
+
 def test_runtime_caches_composed_services(monkeypatch: Any) -> None:
     class FakeProvider:
         provider_name = "openai"

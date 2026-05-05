@@ -14,6 +14,16 @@ export type ChatResponse = {
   sources: SourceMetadata[];
 };
 
+export type IngestResponse = {
+  status: string;
+  documents_indexed: number;
+  chunks_indexed: number;
+};
+
+export type UploadDocumentsResponse = IngestResponse & {
+  uploaded_files: string[];
+};
+
 const API_BASE_URL = "http://localhost:8000";
 
 export async function sendChat(message: string, forceTool: ToolName | null = null): Promise<ChatResponse> {
@@ -30,7 +40,7 @@ export async function sendChat(message: string, forceTool: ToolName | null = nul
   return response.json();
 }
 
-export async function ingestDocuments(): Promise<{ status: string; documents_indexed: number; chunks_indexed: number }> {
+export async function ingestDocuments(): Promise<IngestResponse> {
   const response = await fetch(`${API_BASE_URL}/ingest`, { method: "POST" });
   if (!response.ok) {
     throw new Error("Ingestion failed.");
@@ -38,3 +48,19 @@ export async function ingestDocuments(): Promise<{ status: string; documents_ind
   return response.json();
 }
 
+export async function uploadDocuments(files: File[]): Promise<UploadDocumentsResponse> {
+  const formData = new FormData();
+  files.forEach((file) => formData.append("files", file));
+
+  const response = await fetch(`${API_BASE_URL}/documents/upload`, {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const detail = await response.json().catch(() => null);
+    throw new Error(detail?.detail ?? "Document upload failed.");
+  }
+
+  return response.json();
+}

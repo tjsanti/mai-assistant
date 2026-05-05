@@ -45,22 +45,7 @@ class RagAnswerer:
         )
 
     def _build_context(self, chunks: list[RetrievedChunk]) -> str:
-        lines: list[str] = []
-        for chunk in chunks:
-            metadata = chunk.document.metadata
-            lines.append(
-                f"Source: {metadata.get('file')} | Page: {metadata.get('page')} | "
-                f"Chunk: {metadata.get('chunk_id')}\n{chunk.document.page_content}"
-            )
-        return "\n\n".join(lines)
+        return "\n\n".join(chunk.format_for_context() for chunk in chunks)
 
     def _sources_from_chunks(self, chunks: list[RetrievedChunk]) -> list[SourceMetadata]:
-        return [
-            SourceMetadata(
-                file=chunk.document.metadata.get("file", "unknown"),
-                page=chunk.document.metadata.get("page"),
-                chunk_id=chunk.document.metadata.get("chunk_id", "unknown"),
-                score=chunk.score,
-            )
-            for chunk in chunks
-        ]
+        return [chunk.to_source() for chunk in chunks]

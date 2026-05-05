@@ -29,10 +29,9 @@ def test_includes_file_metadata() -> None:
         top_k=5,
     )
     results = retriever.retrieve("query")
-    assert results[0].document.metadata["file"] == "a.txt"
+    assert results[0].metadata.file == "a.txt"
 
 
 def test_handles_empty_vector_store_gracefully() -> None:
     retriever = Retriever(FakeVectorStore([]), top_k=5)
     assert retriever.retrieve("query") == []
-

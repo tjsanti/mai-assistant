@@ -1,5 +1,4 @@
-from langchain_core.documents import Document
-
+from app.rag.chunks import ChunkMetadata
 from app.rag.rag_answerer import UNSUPPORTED_ANSWER, RagAnswerer
 from app.rag.retriever import RetrievedChunk
 
@@ -30,9 +29,12 @@ def test_calls_retriever_and_uses_local_provider() -> None:
     retriever = FakeRetriever(
         [
             RetrievedChunk(
-                document=Document(
-                    page_content="FAISS experience",
-                    metadata={"file": "resume.md", "chunk_id": "resume_001", "page": None},
+                content="FAISS experience",
+                metadata=ChunkMetadata(
+                    file="resume.md",
+                    path=None,
+                    chunk_id="resume_001",
+                    page=None,
                 ),
                 score=0.82,
             )
@@ -49,9 +51,12 @@ def test_includes_sources() -> None:
     retriever = FakeRetriever(
         [
             RetrievedChunk(
-                document=Document(
-                    page_content="content",
-                    metadata={"file": "resume.md", "chunk_id": "resume_001", "page": 2},
+                content="content",
+                metadata=ChunkMetadata(
+                    file="resume.md",
+                    path=None,
+                    chunk_id="resume_001",
+                    page=2,
                 ),
                 score=0.82,
             )

@@ -1,12 +1,6 @@
-from dataclasses import dataclass
+from app.rag.chunks import RetrievedDocumentChunk
 
-from langchain_core.documents import Document
-
-
-@dataclass(slots=True)
-class RetrievedChunk:
-    document: Document
-    score: float
+RetrievedChunk = RetrievedDocumentChunk
 
 
 class Retriever:
@@ -16,5 +10,4 @@ class Retriever:
 
     def retrieve(self, query: str) -> list[RetrievedChunk]:
         results = self.vector_store.similarity_search(query, k=self.top_k)
-        return [RetrievedChunk(document=doc, score=score) for doc, score in results]
-
+        return [RetrievedChunk.from_document(doc, score) for doc, score in results]
